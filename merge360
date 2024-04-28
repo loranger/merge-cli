@@ -26,16 +26,15 @@ then
     exit 1
 fi
 
-
-aliases=()
-filters=()
-shift=$(echo "scale=2;$transition_duration/2" | bc)
-
-i=0;
+aliases=(); filters=(); shift=$(echo "scale=2;$transition_duration/2" | bc)
+i=0; totalframes=0; 
 for file in "$@" 
 do
     inputs+=( "-i $file" )
     duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $file)
+    framerate=$(ffprobe -v error -select_streams v:0 -show_entries stream=avg_frame_rate -of default=noprint_wrappers=1:nokey=1 $file)
+    frames=$(echo "$duration*$framerate" | bc)
+    totalframes=$((totalframes+frames))
 
     if [[ $i = 0 ]]
     then
@@ -64,14 +63,50 @@ done
 
 filters+=( "${aliases[@]} concat=n=$#:v=1:a=1 [v] [a]" )
 
-command="ffmpeg -progress - -nostats \
-    ${inputs[@]} \
-    -filter_complex \"${filters[@]}\" \
-    -map \"[v]\" -map \"[a]\" -c:v libx264 -c:a aac $output"
+# Need pre-parsing
+complex_filters=${filters[@]}
 
-echo $command
-eval $command
+# Run in background
+logfile="./ffmpeg.job"
+> $logfile # Flush file
+ffmpeg -hide_banner -loglevel error -progress "$logfile" -y ${inputs[@]} -filter_complex "$complex_filters" -map "[v]" -map "[a]" -c:v libx264 -c:a aac $output 2>/dev/null &
+ffmpeg_pid="${!}"
 
-# Inject spatial metadata
-# python3 $spatial_script --inject $output ${output//\./_injected.}
-exiftool -XMP-GSpherical:Spherical="true" -XMP-GSpherical:Stitched="true" -XMP-GSpherical:ProjectionType="equirectangular" -overwrite_original $output
+current_frame=0; previous_frame=0
+trap "abort=1; kill $ffmpeg_pid 2> /dev/null" SIGINT QUIT
+
+while kill -0 $ffmpeg_pid 2> /dev/null; do
+    current_frame=$(awk -F "=" '/^frame=([0-9])/ {a=$2} END{print a}' $logfile)
+
+    if [[ -n "$abort" ]]; then
+        echo ""
+        echo "Aborting…"
+        [[ -e "${output}" ]] && rm "${output}"
+        break
+    fi
+    
+    sleep .5
+
+    if [[ $current_frame -gt $previous_frame ]]
+    then
+        previous_frame=$current_frame
+        percentage=$(( 100 * previous_frame / totalframes ))
+    fi
+
+    [[ -z "$percentage" ]] && percentage=0
+    printf "\rEncoding $percentage%% (frame $previous_frame/$totalframes)\033[0K\r"
+
+done
+
+if wait "${ffmpeg_pid}" >/dev/null; then
+	echo "\nEncoding Complete!"
+else
+	exit 1
+fi
+[[ -e "${logfile}" ]] && rm "${logfile}"
+
+trap - SIGINT QUIT
+
+echo "Injecting spatial metadata…"
+exiftool -XMP-GSpherical:Spherical="true" -XMP-GSpherical:Stitched="true" -XMP-GSpherical:ProjectionType="equirectangular" -XMP-GSpherical:StereoMode="mono" -overwrite_original $output
+echo "Injection Complete!"
