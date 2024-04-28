@@ -13,7 +13,7 @@ They should be installed on your system in order to make merge360 works, plus so
 Download binary and store it somewhere in your `$PATH`
 
 ```bash
-wget -O /usr/local/sbin/merge360 https://raw.githubusercontent.com/loranger/merge360-cli/master/merge360
+wget -O /usr/local/sbin/merge360 https://raw.githubusercontent.com/loranger/merge-cli/main/merge360
 chmod a+x /usr/local/sbin/merge360
 ```
 
