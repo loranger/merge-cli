@@ -1,0 +1,77 @@
+#!/usr/bin/env sh
+
+transition_duration=3
+inputs=()
+output="merged.mp4"
+
+function verify() {
+    if ! command -v $1 &> /dev/null
+    then
+        echo "$1 could not be found"
+        echo "install it using your package manager e.g.:"
+        echo "brew install $1"
+        exit 1
+    fi    
+}
+
+verify ffmpeg
+verify ffprobe
+verify exiftool
+verify bc
+
+if [ $# -eq 0 ]
+then
+    echo "Combine and crossfade 360 videos into a single spherical tagged mp4 file"
+    echo "usage : $(basename "$0") file1.mov file2.mp4 file3.mp4"
+    exit 1
+fi
+
+
+aliases=()
+filters=()
+shift=$(echo "scale=2;$transition_duration/2" | bc)
+
+i=0;
+for file in "$@" 
+do
+    inputs+=( "-i $file" )
+    duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 $file)
+
+    if [[ $i = 0 ]]
+    then
+        fadein_duration=$transition_duration
+        fadeout_start=$(echo "scale=2;$duration-$shift" | bc)
+        fadeout_duration=$shift
+    else
+        fadein_duration=$shift
+        if [[ $i = $(expr $# - 1) ]]
+        then
+            fadeout_start=$(echo "scale=2;$duration-$shift" | bc)
+            fadeout_duration=$shift
+        else
+            fadeout_start=$(echo "scale=2;$duration-$transition_duration" | bc)
+            fadeout_duration=$transition_duration
+        fi
+    fi
+
+    video="[$i:v] fade=t=in:st=0:d=$fadein_duration, fade=t=out:st=$fadeout_start:d=$fadeout_duration [${i}v];"
+    audio="[$i:a] afade=t=in:st=0:d=$fadein_duration, afade=t=out:st=$fadeout_start:d=$fadeout_duration [${i}a];"
+
+    filters+=( $video $audio )
+    aliases+=( [${i}v] [${i}a] )
+    i=$((i + 1));
+done
+
+filters+=( "${aliases[@]} concat=n=$#:v=1:a=1 [v] [a]" )
+
+command="ffmpeg -progress - -nostats \
+    ${inputs[@]} \
+    -filter_complex \"${filters[@]}\" \
+    -map \"[v]\" -map \"[a]\" -c:v libx264 -c:a aac $output"
+
+echo $command
+eval $command
+
+# Inject spatial metadata
+# python3 $spatial_script --inject $output ${output//\./_injected.}
+exiftool -XMP-GSpherical:Spherical="true" -XMP-GSpherical:Stitched="true" -XMP-GSpherical:ProjectionType="equirectangular" $output
