@@ -74,4 +74,4 @@ eval $command
 
 # Inject spatial metadata
 # python3 $spatial_script --inject $output ${output//\./_injected.}
-exiftool -XMP-GSpherical:Spherical="true" -XMP-GSpherical:Stitched="true" -XMP-GSpherical:ProjectionType="equirectangular" $output
+exiftool -XMP-GSpherical:Spherical="true" -XMP-GSpherical:Stitched="true" -XMP-GSpherical:ProjectionType="equirectangular" -overwrite_original $output
