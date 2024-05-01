@@ -9,11 +9,12 @@ They should be installed on your system in order to make merge360 works, plus so
 ## Usage
 
 ```
-merge360 [-d duration] [-t transition] file1.mov file2.mp4 file3.mp4
+merge360 [-d duration] [-t transition] [-o output] file1.mov file2.mp4 file3.mp4
 ```
 
-- `transition` is one of the [builtin ffmpeg effect](https://trac.ffmpeg.org/wiki/Xfade#Gallery)
-- `duration` (in seconds) is the duration of the transition
+- `duration` of the transition, in seconds (default: 3)
+- `transition` is one of the [builtin ffmpeg effects](https://trac.ffmpeg.org/wiki/Xfade#Gallery) (default: fade)
+- `output` is the name of the output file (default: merged.mp4)
 
 ## Installation
 
