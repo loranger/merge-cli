@@ -6,6 +6,15 @@ Combine and crossfade 360 videos into a single spherical tagged mp4 file
 This scripts uses `ffmpeg` and the depreacted package `exiftool`.  
 They should be installed on your system in order to make merge360 works, plus some unix extra such as `bc` or `awk`.
 
+## Usage
+
+```
+merge360 [-d duration] [-t transition] file1.mov file2.mp4 file3.mp4
+```
+
+- `transition` is one of the [builtin ffmpeg effect](https://trac.ffmpeg.org/wiki/Xfade#Gallery)
+- `duration` (in seconds) is the duration of the transition
+
 ## Installation
 
 ### From build
