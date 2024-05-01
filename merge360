@@ -5,6 +5,31 @@ transition_duration=3
 output="merged.mp4"
 transition="fade"
 
+function help() {
+    echo "Combine and crossfade 360 videos into a single spherical tagged mp4 file"
+    echo "Usage: $(basename $0) [-d duration] [-t transition] file1 file2…"
+    exit 1
+}
+
+while getopts :hd:t: option; do
+    case $option in
+        d)
+            transition_duration=$OPTARG;;
+        t)
+            transition=$OPTARG;;
+        \?|h)
+            help
+            exit;;
+    esac
+done
+
+shift $((OPTIND - 1))
+
+if [ $# -le 1 ]
+then
+    help
+fi
+
 function cleanup() {
     exit_status=$?
     abort=1
